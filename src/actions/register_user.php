@@ -21,39 +21,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $mysqli = get_db_connection();
+    try {
+        $pdo = get_db_connection();
 
-    // Check for existing username or email
-    $stmt = $mysqli->prepare('SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1');
-    $stmt->bind_param('ss', $username, $email);
-    $stmt->execute();
-    $stmt->store_result();
-    if ($stmt->num_rows > 0) {
-        $stmt->close();
-        $mysqli->close();
-        header('Location: register.php?error=Username+or+email+already+exists');
-        exit;
-    }
-    $stmt->close();
+        // Check for existing username or email
+        $stmt = $pdo->prepare('SELECT user_id FROM users WHERE username = :username OR email = :email LIMIT 1');
+        $stmt->execute([
+            ':username' => $username,
+            ':email' => $email
+        ]);
 
-    // Hash password
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+        if ($stmt->fetch()) {
+            header('Location: register.php?error=Username+or+email+already+exists');
+            exit;
+        }
 
-    // Insert user
-    $stmt = $mysqli->prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
-    $stmt->bind_param('sss', $username, $email, $password_hash);
-    if ($stmt->execute()) {
-        $stmt->close();
-        $mysqli->close();
+        // Hash password
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+        // Insert new user
+        $stmt = $pdo->prepare('INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)');
+        $stmt->execute([
+            ':username' => $username,
+            ':email' => $email,
+            ':password_hash' => $password_hash
+        ]);
+
         header('Location: register.php?success=Registration+successful.+You+may+now+log+in.');
         exit;
-    } else {
-        $stmt->close();
-        $mysqli->close();
+
+    } catch (PDOException $e) {
+        // Optionally log the error
+        // error_log("Registration Error: " . $e->getMessage());
         header('Location: register.php?error=Registration+failed.+Please+try+again.');
         exit;
     }
 } else {
     header('Location: register.php');
     exit;
-} 
+}
