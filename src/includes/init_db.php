@@ -1,29 +1,30 @@
 <?php
-// Run this script ONCE to initialize the database tables
+// Run this script ONCE to initialize the database tables using PDO
 require_once __DIR__ . '/../includes/db_connect.php';
 
-$mysqli = get_db_connection();
+try {
+    $pdo = get_db_connection();
 
-$sql_file = __DIR__ . '/db_schema.sql';
-if (!file_exists($sql_file)) {
-    die('SQL schema file not found.');
-}
+    $sql_file = __DIR__ . '/db_schema.sql';
+    if (!file_exists($sql_file)) {
+        die('SQL schema file not found.');
+    }
 
-$sql = file_get_contents($sql_file);
-if (!$sql) {
-    die('Failed to read SQL schema file.');
-}
+    $sql = file_get_contents($sql_file);
+    if (!$sql) {
+        die('Failed to read SQL schema file.');
+    }
 
-if ($mysqli->multi_query($sql)) {
-    do {
-        // flush results for each statement
-        if ($result = $mysqli->store_result()) {
-            $result->free();
+    // Split SQL into individual statements (rudimentary)
+    $statements = array_filter(array_map('trim', explode(';', $sql)));
+
+    foreach ($statements as $statement) {
+        if (!empty($statement)) {
+            $pdo->exec($statement);
         }
-    } while ($mysqli->next_result());
-    echo "Database tables created successfully.<br>";
-} else {
-    echo "Error creating tables: " . $mysqli->error . "<br>";
-}
+    }
 
-$mysqli->close(); 
+    echo "Database tables created successfully.<br>";
+} catch (PDOException $e) {
+    echo "Error creating tables: " . $e->getMessage() . "<br>";
+}
