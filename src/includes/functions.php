@@ -2,6 +2,7 @@
 // Common utility functions for validation, sanitization, etc.
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/db_connect.php'; // Ensure this is included for get_db_connection()
 
 function sanitize_output($string) {
     return htmlspecialchars($string, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -24,13 +25,17 @@ function format_price($price) {
 }
 
 function mark_ended_auctions() {
-    $mysqli = get_db_connection();
+    $pdo = get_db_connection();
     $now = (new DateTime('now', new DateTimeZone(TIMEZONE)))->format('Y-m-d H:i:s');
-    $stmt = $mysqli->prepare('UPDATE items SET status = "Ended" WHERE status = "Active" AND end_time <= ?');
-    $stmt->bind_param('s', $now);
-    $stmt->execute();
-    $stmt->close();
-    $mysqli->close();
+
+    try {
+        $stmt = $pdo->prepare('UPDATE items SET status = "Ended" WHERE status = "Active" AND end_time <= :now');
+        $stmt->bindParam(':now', $now);
+        $stmt->execute();
+    } catch (PDOException $e) {
+        error_log("Failed to mark ended auctions: " . $e->getMessage());
+        throw new Exception("An error occurred while updating auction statuses.");
+    }
 }
 
 // Function to sanitize output
@@ -140,4 +145,4 @@ function get_flash_message() {
             </div></div>";
 }
 
-// Placeholder for utility functions 
+// Placeholder for utility functions
